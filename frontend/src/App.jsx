@@ -154,6 +154,17 @@ function App() {
       <footer className="mt-12 py-6 border-t border-gray-200 bg-white">
         <div className="max-w-4xl mx-auto px-4 text-center text-sm text-gray-500">
           <p>Math Assistant - Propulsé par OpenAI Vision & WolframAlpha</p>
+          <p className="mt-2">
+            Développé par{' '}
+            <a
+              href="https://portfoliodek.netlify.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 underline"
+            >
+              Dekens Ruzuba
+            </a>
+          </p>
         </div>
       </footer>
     </div>

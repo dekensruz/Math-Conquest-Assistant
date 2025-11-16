@@ -2,6 +2,7 @@ import { BlockMath, InlineMath } from 'react-katex'
 import 'katex/dist/katex.min.css'
 import { useEffect, useRef } from 'react'
 import jsPDF from 'jspdf'
+import ChatInterface from './ChatInterface'
 
 /**
  * Composant pour afficher la solution complète avec explications étape par étape
@@ -177,6 +178,9 @@ function SolutionDisplay({ problem, solution, onReset }) {
           </section>
         )}
       </div>
+
+      {/* Chat interactif pour questions de suivi */}
+      <ChatInterface problem={problem} solution={solution} />
     </div>
   )
 }

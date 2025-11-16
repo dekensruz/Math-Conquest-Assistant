@@ -83,10 +83,16 @@ npm install
 ```bash
 cd backend
 # Activer le venv si pas déjà fait
+venv\Scripts\activate  # Windows
+# ou
+source venv/bin/activate  # Linux/Mac
+
 python main.py
 ```
 
 Le backend sera accessible sur `http://localhost:8000`
+
+> **⚠️ Important** : Après chaque modification du fichier `main.py`, redémarrez le backend (Ctrl+C puis relancez `python main.py`) pour que les changements soient pris en compte.
 
 ### Frontend (Terminal 2)
 
@@ -182,7 +188,11 @@ Ce projet est un projet éducatif.
 
 ## 👨‍💻 Auteur
 
+**Dekens Ruzuba**
+
 Développé dans le cadre de la "Vibe-code Conquest".
+
+Portfolio : [https://portfoliodek.netlify.app/](https://portfoliodek.netlify.app/)
 
 ---
 
