@@ -4,11 +4,11 @@
  */
 function ErrorMessage({ message, onDismiss }) {
   return (
-    <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r-lg">
+    <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 dark:border-red-600 p-4 mb-6 rounded-r-lg">
       <div className="flex items-start">
         <div className="flex-shrink-0">
           <svg
-            className="h-5 w-5 text-red-500"
+            className="h-5 w-5 text-red-500 dark:text-red-400"
             fill="currentColor"
             viewBox="0 0 20 20"
           >
@@ -20,14 +20,14 @@ function ErrorMessage({ message, onDismiss }) {
           </svg>
         </div>
         <div className="ml-3 flex-1">
-          <p className="text-sm sm:text-base text-red-800 font-medium">
+          <p className="text-sm sm:text-base text-red-800 dark:text-red-300 font-medium">
             {message}
           </p>
         </div>
         {onDismiss && (
           <button
             onClick={onDismiss}
-            className="ml-3 flex-shrink-0 text-red-500 hover:text-red-700"
+            className="ml-3 flex-shrink-0 text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
           >
             <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
               <path

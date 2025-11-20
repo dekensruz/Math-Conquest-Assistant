@@ -3,13 +3,25 @@ import 'katex/dist/katex.min.css'
 import { useEffect, useRef } from 'react'
 import jsPDF from 'jspdf'
 import ChatInterface from './ChatInterface'
+import { addToHistory } from '../utils/historyStorage'
+import StepDescription from './StepDescription'
+import { fixLatexInText } from '../utils/latexHelper'
+import { useLanguage } from '../contexts/LanguageContext'
 
 /**
  * Composant pour afficher la solution complète avec explications étape par étape
  * Inclut l'export PDF
  */
 function SolutionDisplay({ problem, solution, onReset }) {
+  const { t } = useLanguage()
   const contentRef = useRef(null)
+
+  // Sauvegarder dans l'historique quand la solution est affichée
+  useEffect(() => {
+    if (problem && solution) {
+      addToHistory(problem, solution)
+    }
+  }, [problem, solution])
 
   /**
    * Exporte la solution en PDF
@@ -42,140 +54,192 @@ function SolutionDisplay({ problem, solution, onReset }) {
           pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
           heightLeft -= pageHeight
         }
-
-        pdf.save('solution-mathematique.pdf')
-      }).catch((error) => {
-        console.error('Erreur lors de la génération du PDF:', error)
-        alert('Erreur lors de la génération du PDF. Veuillez réessayer.')
+        pdf.save('solution-math-assistant.pdf')
       })
     })
   }
 
-  // Parser l'explication (peut être un objet JSON ou une string)
-  const explanation = solution.explanation || {}
-  const steps = explanation.steps || []
-  const finalAnswer = explanation.final_answer || solution.wolfram_result?.result || 'Non disponible'
+  // Parsing de l'explication si c'est une string JSON brute
+  let explanation = solution.explanation || {};
+  if (typeof explanation === 'string') {
+    const originalText = explanation;
+    try {
+      // Essayer d'extraire le JSON d'un bloc de code markdown
+      const jsonMatch = explanation.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        explanation = JSON.parse(jsonMatch[1]);
+      } else {
+        // Essayer de parser directement
+        explanation = JSON.parse(explanation);
+      }
+    } catch (e) {
+      console.error("Erreur de parsing JSON:", e);
+      // Fallback si le parsing échoue
+      explanation = {
+        steps: [],
+        summary: 'Erreur lors du parsing de l\'explication.',
+        raw_text: originalText
+      };
+    }
+  }
+
+  // Traitement de la réponse finale avec nettoyage agressif
+  let finalAnswer = solution.final_answer || 'Résultat non disponible'
+  if (typeof finalAnswer === 'string') {
+    finalAnswer = fixLatexInText(finalAnswer)
+    finalAnswer = finalAnswer.replace(/\s+/g, ' ').trim()
+  }
+  
+  // Déterminer si finalAnswer est du LaTeX valide ou du texte simple
+  const isLatex = typeof finalAnswer === 'string' && (
+    finalAnswer.includes('\\') || 
+    finalAnswer.includes('^') || 
+    finalAnswer.includes('_') ||
+    finalAnswer.includes('frac') ||
+    finalAnswer.includes('sqrt') ||
+    /[a-zA-Z]/.test(finalAnswer) || // Contient des lettres
+    /[=+\-*\/]/.test(finalAnswer) // Contient des opérateurs
+  )
+
+  // Nettoyer le problème pour l'affichage (retirer les délimiteurs \[ \] s'ils sont présents)
+  const displayProblem = typeof problem === 'string' ? problem.replace(/^\\\[|\\\]$/g, '').trim() : problem;
 
   return (
     <div className="space-y-6">
       {/* En-tête avec actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
-          Solution complète
+        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+          {t('solutionTitle')}
         </h2>
         <div className="flex gap-3">
           <button
             onClick={handleExportPDF}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors text-sm sm:text-base"
+            className="px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium flex items-center gap-2"
           >
-            📄 Télécharger en PDF
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            {t('exportPDF')}
           </button>
           <button
             onClick={onReset}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors text-sm sm:text-base"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
           >
-            🔄 Nouveau problème
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            {t('newProblem')}
           </button>
         </div>
       </div>
 
-      {/* Contenu de la solution (pour export PDF) */}
-      <div ref={contentRef} className="bg-white rounded-lg shadow-md p-6 sm:p-8 space-y-6">
+      {/* Contenu exportable */}
+      <div ref={contentRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 sm:p-8 border border-gray-100 dark:border-gray-700">
+        
         {/* Problème original */}
-        <section>
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3">
-            Problème
+        <div className="mb-8 pb-6 border-b border-gray-100 dark:border-gray-700">
+          <h3 className="text-sm uppercase tracking-wider text-gray-500 dark:text-gray-400 font-semibold mb-3">
+            {t('problemSection')}
           </h3>
-          <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
-            <BlockMath math={problem} />
+          <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 overflow-x-auto">
+            <BlockMath math={displayProblem} />
           </div>
-        </section>
-
-        {/* Type de problème et méthode */}
-        {(explanation.type || explanation.method) && (
-          <section>
-            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3">
-              Analyse
-            </h3>
-            <div className="bg-blue-50 rounded-lg p-4 sm:p-6 space-y-2">
-              {explanation.type && (
-                <p className="text-base sm:text-lg">
-                  <span className="font-semibold">Type:</span> {explanation.type}
-                </p>
-              )}
-              {explanation.method && (
-                <p className="text-base sm:text-lg">
-                  <span className="font-semibold">Méthode:</span> {explanation.method}
-                </p>
-              )}
-            </div>
-          </section>
-        )}
+        </div>
 
         {/* Étapes de résolution */}
-        {steps.length > 0 && (
-          <section>
-            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">
-              Étapes de résolution
+        {explanation.steps && explanation.steps.length > 0 ? (
+          <div className="space-y-8">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs">
+                {explanation.steps.length}
+              </span>
+              {t('stepsTitle')}
             </h3>
-            <div className="space-y-4">
-              {steps.map((step, index) => (
-                <div
-                  key={index}
-                  className="border-l-4 border-blue-500 pl-4 sm:pl-6 py-3 bg-gray-50 rounded-r-lg"
-                >
-                  <div className="flex items-start gap-3 mb-2">
-                    <span className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold text-sm">
-                      {step.step_number || index + 1}
-                    </span>
-                    <div className="flex-1">
-                      {step.description && (
-                        <p className="text-base sm:text-lg text-gray-800 mb-2">
-                          {step.description}
-                        </p>
-                      )}
-                      {step.latex && (
-                        <div className="bg-white rounded p-3 mb-2">
-                          <BlockMath math={step.latex} />
-                        </div>
-                      )}
-                      {step.explanation && (
-                        <p className="text-sm sm:text-base text-gray-600 italic">
-                          💡 {step.explanation}
-                        </p>
-                      )}
+            
+            <div className="relative border-l-2 border-blue-100 dark:border-blue-900/30 ml-3 space-y-8 pl-6 pb-2">
+              {explanation.steps.map((step, index) => (
+                <div key={index} className="relative">
+                  {/* Point sur la ligne temporelle */}
+                  <div className="absolute -left-[31px] top-0 w-4 h-4 rounded-full bg-white dark:bg-gray-800 border-2 border-blue-500 z-10"></div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-baseline gap-3">
+                      <h4 className="text-base font-semibold text-gray-800 dark:text-gray-200">
+                        {t('step')} {step.step_number}
+                      </h4>
                     </div>
+
+                    <div className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                      <StepDescription description={step.description} />
+                    </div>
+
+                    {step.latex && (
+                      <div className="my-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg p-3 overflow-x-auto border border-blue-100 dark:border-blue-900/20">
+                         <div className="text-blue-900 dark:text-blue-100">
+                          <BlockMath math={fixLatexInText(step.latex)} />
+                         </div>
+                      </div>
+                    )}
+
+                    {step.explanation && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 italic bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg">
+                        <span className="font-medium not-italic mr-1">{t('note')}:</span>
+                        {step.explanation}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
-          </section>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            Aucune étape détaillée disponible.
+            {explanation.raw_text && (
+               <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded text-left text-sm font-mono overflow-x-auto whitespace-pre-wrap">
+                 {explanation.raw_text}
+               </div>
+            )}
+            {explanation.type && (
+              <span className="block mt-2">
+                Type: {explanation.type || 'N/A'}, Méthode: {explanation.method || 'N/A'}
+              </span>
+            )}
+          </div>
         )}
 
         {/* Réponse finale */}
-        <section>
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3">
+        <div className="mt-8 pt-8 border-t border-gray-100 dark:border-gray-700">
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-4">
             Réponse finale
           </h3>
-          <div className="bg-green-50 rounded-lg p-4 sm:p-6 border-2 border-green-200">
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/10 rounded-xl p-6 border border-green-100 dark:border-green-800/30 shadow-sm">
             <div className="text-center">
-              <BlockMath math={finalAnswer} />
+              {isLatex ? (
+                <div className="text-green-900 dark:text-green-100">
+                  <BlockMath math={finalAnswer} />
+                </div>
+              ) : (
+                <p className="text-xl sm:text-2xl font-semibold text-green-800 dark:text-green-200">
+                  {finalAnswer}
+                </p>
+              )}
             </div>
           </div>
-        </section>
+        </div>
 
         {/* Résumé (si disponible) */}
         {explanation.summary && (
-          <section>
-            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3">
+          <div className="mt-8">
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-3">
               Résumé
             </h3>
-            <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
-              <p className="text-base sm:text-lg text-gray-800">
-                {explanation.summary}
-              </p>
+            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-6 border border-gray-100 dark:border-gray-700">
+              <div className="text-base text-gray-700 dark:text-gray-300">
+                <StepDescription description={explanation.summary} />
+              </div>
             </div>
-          </section>
+          </div>
         )}
       </div>
 
@@ -186,4 +250,3 @@ function SolutionDisplay({ problem, solution, onReset }) {
 }
 
 export default SolutionDisplay
-

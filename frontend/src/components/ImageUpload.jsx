@@ -1,10 +1,12 @@
 import { useRef, useState } from 'react'
+import { useLanguage } from '../contexts/LanguageContext'
 
 /**
  * Composant pour l'upload d'image (fichier ou caméra)
- * Mobile-first avec support de la caméra
+ * Mobile-first avec support de la caméra - Redesign Moderne
  */
 function ImageUpload({ onImageUpload }) {
+  const { t } = useLanguage()
   const fileInputRef = useRef(null)
   const [dragActive, setDragActive] = useState(false)
   const [preview, setPreview] = useState(null)
@@ -60,37 +62,23 @@ function ImageUpload({ onImageUpload }) {
     }
   }
 
-  /**
-   * Gère la capture depuis la caméra (mobile)
-   */
-  const handleCameraCapture = () => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = 'image/*'
-    input.capture = 'environment' // Utilise la caméra arrière sur mobile
-    input.onchange = (e) => {
-      if (e.target.files && e.target.files[0]) {
-        handleFileSelect(e.target.files[0])
-      }
-    }
-    input.click()
-  }
-
   return (
-    <div className="w-full">
+    <div className="w-full max-w-3xl mx-auto">
       <div
         className={`
-          relative border-2 border-dashed rounded-lg p-8 sm:p-12
-          transition-colors duration-200
+          relative group cursor-pointer
+          border-2 border-dashed rounded-2xl p-10 sm:p-16
+          transition-all duration-300 ease-out
           ${dragActive 
-            ? 'border-blue-500 bg-blue-50' 
-            : 'border-gray-300 bg-white hover:border-gray-400'
+            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 scale-[1.02]' 
+            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'
           }
         `}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
         onDrop={handleDrop}
+        onClick={handleButtonClick}
       >
         <input
           ref={fileInputRef}
@@ -104,65 +92,56 @@ function ImageUpload({ onImageUpload }) {
           }}
         />
 
-        <div className="text-center">
-          {/* Icône */}
-          <div className="mx-auto flex items-center justify-center h-16 w-16 sm:h-20 sm:w-20 rounded-full bg-gray-100 mb-4">
-            <svg
-              className="h-8 w-8 sm:h-10 sm:w-10 text-gray-400"
-              fill="none"
+        <div className="flex flex-col items-center justify-center text-center space-y-6">
+          {/* Animated Icon Container */}
+          <div className={`
+            w-20 h-20 rounded-2xl flex items-center justify-center
+            transition-all duration-500
+            ${dragActive 
+              ? 'bg-blue-600 text-white rotate-12 scale-110 shadow-lg shadow-blue-500/30' 
+              : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 group-hover:scale-110 group-hover:rotate-3'
+            }
+          `}>
+            <svg 
+              className="w-10 h-10 transition-transform duration-500" 
+              fill="none" 
+              viewBox="0 0 24 24" 
               stroke="currentColor"
-              viewBox="0 0 24 24"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           </div>
 
-          {/* Texte principal */}
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
-            Prenez une photo ou uploadez une image
-          </h3>
-          <p className="text-sm sm:text-base text-gray-600 mb-6">
-            Glissez-déposez une image ici, ou cliquez pour sélectionner
-          </p>
-
-          {/* Boutons d'action */}
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <button
-              onClick={handleButtonClick}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors text-sm sm:text-base"
-            >
-              📁 Choisir un fichier
-            </button>
-            <button
-              onClick={handleCameraCapture}
-              className="px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors text-sm sm:text-base"
-            >
-              📷 Prendre une photo
-            </button>
+          <div className="space-y-2">
+            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white transition-colors">
+              {t('uploadTitle')}
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
+              Glissez-déposez votre fichier ici, ou <span className="text-blue-600 dark:text-blue-400 font-medium border-b border-blue-600/30 hover:border-blue-600 transition-colors">parcourez vos dossiers</span>
+            </p>
           </div>
 
-          {/* Preview de l'image */}
-          {preview && (
-            <div className="mt-6">
-              <img
-                src={preview}
-                alt="Preview"
-                className="max-w-full h-auto max-h-64 mx-auto rounded-lg shadow-md"
-              />
-            </div>
-          )}
+          {/* Format Badges */}
+          <div className="flex items-center gap-2 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+            <span className="px-2 py-1 rounded bg-gray-100 dark:bg-gray-700">JPG</span>
+            <span className="px-2 py-1 rounded bg-gray-100 dark:bg-gray-700">PNG</span>
+            <span className="px-2 py-1 rounded bg-gray-100 dark:bg-gray-700">WEBP</span>
+          </div>
         </div>
-      </div>
 
-      {/* Instructions */}
-      <div className="mt-4 text-center text-sm text-gray-500">
-        <p>Formats supportés: JPG, PNG, WebP</p>
-        <p className="mt-1">Assurez-vous que l'image soit nette et bien éclairée</p>
+        {/* Preview Overlay */}
+        {preview && (
+          <div className="absolute inset-0 z-10 bg-white dark:bg-gray-800 rounded-2xl flex flex-col items-center justify-center p-4">
+            <img
+              src={preview}
+              alt="Preview"
+              className="max-w-full max-h-[80%] rounded-lg shadow-lg object-contain mb-4"
+            />
+            <p className="text-sm font-medium text-blue-600 dark:text-blue-400 animate-pulse">
+              Traitement en cours...
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )
