@@ -49,7 +49,7 @@ function HistoryPage({ onBack, onSelectProblem }) {
           onClick={() => setSelectedItem(null)}
           className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
         >
-          ← Retour à l'historique
+          ← Retour à l&rsquo;historique
         </button>
         <SolutionDisplay
           problem={selectedItem.problem}
@@ -94,7 +94,7 @@ function HistoryPage({ onBack, onSelectProblem }) {
       {history.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-12 text-center">
           <p className="text-gray-500 dark:text-gray-400 text-lg">
-            Aucun problème dans l'historique
+            Aucun problème dans l&rsquo;historique
           </p>
           <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">
             Les problèmes que vous résolvez seront sauvegardés ici

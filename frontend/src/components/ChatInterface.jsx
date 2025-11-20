@@ -1,6 +1,4 @@
 import { useState, useRef, useEffect } from 'react'
-import { BlockMath, InlineMath } from 'react-katex'
-import 'katex/dist/katex.min.css'
 import LoadingSpinner from './LoadingSpinner'
 import { renderMarkdown } from '../utils/markdownRenderer.jsx'
 
@@ -15,13 +13,28 @@ function ChatInterface({ problem, solution }) {
   const [messages, setMessages] = useState([])
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const messagesEndRef = useRef(null)
+  const messagesContainerRef = useRef(null)
   const inputRef = useRef(null)
 
-  // Scroll automatique vers le bas quand de nouveaux messages arrivent
+  // Scroll automatique limité à la zone de chat pour éviter de remonter toute la page
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    if (!messagesContainerRef.current) return
+    if (messages.length === 0 && !isLoading) return
+    messagesContainerRef.current.scrollTo({
+      top: messagesContainerRef.current.scrollHeight,
+      behavior: 'smooth'
+    })
+  }, [messages, isLoading])
+
+  const buildHistoryPayload = (historyList) => {
+    return historyList
+      .filter((msg) => msg.type === 'user' || msg.type === 'assistant')
+      .slice(-8)
+      .map((msg) => ({
+        role: msg.type === 'user' ? 'user' : 'assistant',
+        content: msg.content
+      }))
+  }
 
   /**
    * Envoie une question au backend
@@ -40,7 +53,9 @@ function ChatInterface({ problem, solution }) {
       content: question,
       timestamp: new Date()
     }
-    setMessages(prev => [...prev, userMessage])
+
+    const updatedHistory = [...messages, userMessage]
+    setMessages(updatedHistory)
     setIsLoading(true)
 
     try {
@@ -53,7 +68,8 @@ function ChatInterface({ problem, solution }) {
           problem: problem,
           solution: solution,
           question: question,
-          language: language
+          language: language,
+          history: buildHistoryPayload(updatedHistory)
         }),
       })
 
@@ -152,7 +168,11 @@ function ChatInterface({ problem, solution }) {
       {/* Zone de chat */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 flex flex-col" style={{ maxHeight: '500px' }}>
         {/* Historique des messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ minHeight: '200px', maxHeight: '300px' }}>
+        <div
+          ref={messagesContainerRef}
+          className="flex-1 overflow-y-auto p-4 space-y-4"
+          style={{ minHeight: '200px', maxHeight: '300px' }}
+        >
           {messages.length === 0 && (
             <div className="text-center text-gray-500 dark:text-gray-400 py-8">
               <p className="text-sm">
@@ -196,8 +216,6 @@ function ChatInterface({ problem, solution }) {
               </div>
             </div>
           )}
-          
-          <div ref={messagesEndRef} />
         </div>
 
         {/* Zone de saisie */}
@@ -217,7 +235,7 @@ function ChatInterface({ problem, solution }) {
               disabled={!inputValue.trim() || isLoading}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed text-sm"
             >
-              {t('solveButton')}
+              {t('send')}
             </button>
           </div>
         </form>

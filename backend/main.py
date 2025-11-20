@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 import openai
 import requests
 import base64
-from typing import Optional
+from typing import Optional, List
 import logging
 import json
 import re
@@ -59,11 +59,17 @@ class SolveRequest(BaseModel):
     latex: str
     language: str = 'fr'
 
+class ConversationMessage(BaseModel):
+    role: str
+    content: str
+
+
 class ChatRequest(BaseModel):
     problem: str
     solution: dict
     question: str
     language: str = 'fr'
+    history: Optional[List[ConversationMessage]] = None
 
 
 @app.get("/")
@@ -157,7 +163,6 @@ async def solve_problem(request: SolveRequest):
     """
     latex_problem = request.latex
     language = request.language
-    
     if not latex_problem:
         raise HTTPException(status_code=400, detail="Le LaTeX du problème est requis")
     
@@ -215,6 +220,7 @@ async def chat_about_solution(request: ChatRequest):
     solution = request.solution
     question = request.question
     language = request.language
+    history_turns = request.history or []
     
     if not problem or not solution or not question:
         raise HTTPException(
@@ -232,6 +238,15 @@ async def chat_about_solution(request: ChatRequest):
         # Instructions en fonction de la langue
         lang_instruction = "Réponds en français" if language == 'fr' else "Answer in English"
         
+        history_text = ""
+        if history_turns:
+            recent_turns = history_turns[-8:]
+            formatted_turns = []
+            for turn in recent_turns:
+                role_label = "Étudiant" if turn.role == "user" else "Assistant"
+                formatted_turns.append(f"{role_label}: {turn.content}")
+            history_text = "\nHistorique récent de la discussion:\n" + "\n".join(formatted_turns) + "\n"
+        
         prompt = f"""Tu es un professeur de mathématiques patient et pédagogue. 
 Un étudiant vient de résoudre un problème mathématique et a maintenant une question de suivi.
 
@@ -240,7 +255,7 @@ Problème original (en LaTeX): {problem}
 Solution complète:
 {solution_text}
 
-Question de l'étudiant: {question}
+{history_text}Question de l'étudiant: {question}
 
 Réponds à la question de l'étudiant de manière claire et pédagogique. 
 - Si la question concerne une étape spécifique, explique cette étape en détail
@@ -251,6 +266,7 @@ Réponds à la question de l'étudiant de manière claire et pédagogique.
 - Structure ta réponse avec des titres (### pour les sections principales)
 - Utilise des listes à puces (-) pour organiser les étapes ou points importants
 - Sois encourageant et pédagogique
+- Si l'étudiant remercie ou clôt la discussion, réponds très brièvement (ex: "Avec plaisir !")
 
 IMPORTANT: {lang_instruction}
 
@@ -304,13 +320,24 @@ Paragraphe de conclusion..."""
 
 def clean_latex_string(text: str) -> str:
     """
-    Nettoie les symboles $ et $$ d'une chaîne de caractères.
+    Nettoie les symboles $ d'une chaîne et supprime tout caractère de contrôle non imprimable.
     """
     if not isinstance(text, str):
         return text
+
+    if text is None:
+        return ""
+
+    # Supprimer les caractères de contrôle sauf retours à la ligne
+    text = "".join(ch for ch in text if ch == '\n' or ord(ch) >= 32)
+
+    # Supprimer les séquences échappées problématiques (\f, \x0c, etc.)
+    text = text.replace('\\f', '').replace('\f', '').replace('\x0c', '')
+
     # Enlever les $ et $$ qui entourent le LaTeX
     text = re.sub(r'\$\$?([^$]+)\$?\$?', r'\1', text)
-    return text
+
+    return text.strip()
 
 
 async def call_wolframalpha(latex_problem: str) -> dict:
@@ -327,42 +354,68 @@ async def call_wolframalpha(latex_problem: str) -> dict:
         }
     
     try:
-        # Convertir le LaTeX en format texte pour WolframAlpha
-        # WolframAlpha comprend certains formats LaTeX, mais on peut aussi simplifier
+        # Convertir le LaTeX en texte simple (Wolfram gère mal certains symboles LaTeX)
         query = latex_problem.replace("\\", "").replace("{", "").replace("}", "")
-        
+
         url = "https://api.wolframalpha.com/v2/query"
         params = {
             "input": query,
             "appid": WOLFRAM_APP_ID,
             "output": "json",
-            "format": "plaintext"
+            "format": "plaintext",
+            "podstate": "Result__Step-by-step solution"
         }
-        
-        response = requests.get(url, params=params, timeout=10)
+
+        logger.info(f"Appel WolframAlpha avec query: {query}")
+        response = requests.get(url, params=params, timeout=15)
         response.raise_for_status()
-        
+
         data = response.json()
-        
-        # Parser la réponse de WolframAlpha
-        result_text = "Resultat non disponible"
-        if "queryresult" in data and "pods" in data["queryresult"]:
-            pods = data["queryresult"]["pods"]
-            for pod in pods:
-                if pod.get("id") == "Result" or pod.get("title") == "Result":
-                    if "subpods" in pod and len(pod["subpods"]) > 0:
-                        result_text = pod["subpods"][0].get("plaintext", "Resultat non disponible")
+
+        result_text = None
+        pods = data.get("queryresult", {}).get("pods", [])
+
+        priority_ids = {
+            "Result", "Solution", "Solutions", "ExactResult", "DecimalApproximation", "Exact result"
+        }
+
+        # Stratégie 1 : pods prioritaires
+        for pod in pods:
+            if pod.get("id") in priority_ids or pod.get("title") in priority_ids:
+                subpods = pod.get("subpods", [])
+                if subpods:
+                    candidate = subpods[0].get("plaintext")
+                    if candidate:
+                        result_text = candidate
                         break
-        
+
+        # Stratégie 2 : premier pod non Input
+        if not result_text:
+            for pod in pods:
+                if pod.get("id") in ["Input", "InputInterpretation"] or pod.get("title") in ["Input", "Input interpretation"]:
+                    continue
+                subpods = pod.get("subpods", [])
+                if subpods:
+                    candidate = subpods[0].get("plaintext")
+                    if candidate:
+                        result_text = candidate
+                        break
+
+        if not result_text:
+            result_text = "Result unavailable"
+
+        result_text = clean_latex_string(result_text)
+        logger.info(f"Résultat WolframAlpha trouvé: {result_text}")
+
         return {
             "result": result_text,
             "raw_response": data
         }
-        
+
     except requests.exceptions.RequestException as e:
         logger.error(f"Erreur WolframAlpha API: {str(e)}")
         return {
-            "result": "Erreur lors de l'appel à WolframAlpha",
+            "result": "Erreur de connexion à WolframAlpha",
             "error": str(e)
         }
 

@@ -2,13 +2,12 @@ import { useState, useEffect } from 'react'
 import { BlockMath } from 'react-katex'
 import 'katex/dist/katex.min.css'
 import { getHistory, removeFromHistory, clearHistory } from '../utils/historyStorage'
-import StepDescription from './StepDescription'
 import { useLanguage } from '../contexts/LanguageContext'
 
 /**
  * Helper pour grouper l'historique par date
  */
-const groupHistoryByDate = (history, t) => {
+const groupHistoryByDate = (history) => {
   const groups = {
     today: [],
     yesterday: [],
@@ -41,7 +40,7 @@ const groupHistoryByDate = (history, t) => {
   return groups
 }
 
-function HistorySidebar({ onSelectProblem }) {
+function HistorySidebar({ onSelectProblem, onCollapseChange }) {
   const { t } = useLanguage()
   const [history, setHistory] = useState([])
   const [isCollapsed, setIsCollapsed] = useState(false) // Par défaut ouvert sur Desktop
@@ -84,32 +83,13 @@ function HistorySidebar({ onSelectProblem }) {
     }
   }
 
-  const renderProblemPreview = (problem) => {
-    try {
-      // Limiter la taille du LaTeX pour l'aperçu
-      return <BlockMath math={problem} />
-    } catch (error) {
-      return (
-        <span className="text-xs font-mono text-gray-500">
-          {problem.substring(0, 20)}...
-        </span>
-      )
+  useEffect(() => {
+    if (onCollapseChange) {
+      onCollapseChange(isCollapsed)
     }
-  }
+  }, [isCollapsed, onCollapseChange])
 
-  const groups = groupHistoryByDate(history, t)
-  
-  // Titres des groupes
-  const groupTitles = {
-    today: "Aujourd'hui",
-    yesterday: "Hier",
-    lastWeek: "7 derniers jours",
-    older: "Plus ancien"
-  }
-
-  // Si la langue est anglais, adapter (idéalement via t(), mais ici simple mapping)
-  // On pourrait ajouter ces clés dans LanguageContext
-  
+  const groups = groupHistoryByDate(history)
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -231,6 +211,7 @@ function HistorySidebar({ onSelectProblem }) {
       <div className="p-3 border-t border-gray-200 dark:border-gray-800">
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
+          title={isCollapsed ? t('expandMenu') : t('collapseMenu')}
           className={`
             w-full flex items-center gap-3 p-2 rounded-lg text-sm font-medium
             text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors
@@ -243,7 +224,7 @@ function HistorySidebar({ onSelectProblem }) {
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
           </svg>
-          {!isCollapsed && <span>Réduire le menu</span>}
+          {!isCollapsed && <span>{t('collapseMenu')}</span>}
         </button>
       </div>
     </div>

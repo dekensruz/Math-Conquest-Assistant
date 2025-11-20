@@ -8,6 +8,7 @@ import { useLanguage } from '../contexts/LanguageContext'
 function ImageUpload({ onImageUpload }) {
   const { t } = useLanguage()
   const fileInputRef = useRef(null)
+  const cameraInputRef = useRef(null)
   const [dragActive, setDragActive] = useState(false)
   const [preview, setPreview] = useState(null)
 
@@ -25,7 +26,7 @@ function ImageUpload({ onImageUpload }) {
       
       onImageUpload(file)
     } else {
-      alert('Veuillez sélectionner une image valide')
+      alert(t('invalidImage'))
     }
   }
 
@@ -34,6 +35,10 @@ function ImageUpload({ onImageUpload }) {
    */
   const handleButtonClick = () => {
     fileInputRef.current?.click()
+  }
+
+  const handleCameraClick = () => {
+    cameraInputRef.current?.click()
   }
 
   /**
@@ -91,6 +96,18 @@ function ImageUpload({ onImageUpload }) {
             }
           }}
         />
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files && e.target.files[0]) {
+              handleFileSelect(e.target.files[0])
+            }
+          }}
+        />
 
         <div className="flex flex-col items-center justify-center text-center space-y-6">
           {/* Animated Icon Container */}
@@ -117,15 +134,46 @@ function ImageUpload({ onImageUpload }) {
               {t('uploadTitle')}
             </h3>
             <p className="text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
-              Glissez-déposez votre fichier ici, ou <span className="text-blue-600 dark:text-blue-400 font-medium border-b border-blue-600/30 hover:border-blue-600 transition-colors">parcourez vos dossiers</span>
+              {t('uploadSubtitle')}{' '}
+              <span className="text-blue-600 dark:text-blue-400 font-medium border-b border-blue-600/30 hover:border-blue-600 transition-colors">
+                {t('browse')}
+              </span>
+            </p>
+            <p className="text-xs uppercase tracking-widest text-gray-400 dark:text-gray-500">
+              {t('formats')}
             </p>
           </div>
 
           {/* Format Badges */}
-          <div className="flex items-center gap-2 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+          <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
             <span className="px-2 py-1 rounded bg-gray-100 dark:bg-gray-700">JPG</span>
             <span className="px-2 py-1 rounded bg-gray-100 dark:bg-gray-700">PNG</span>
             <span className="px-2 py-1 rounded bg-gray-100 dark:bg-gray-700">WEBP</span>
+          </div>
+
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            {t('qualityTip')}
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md mt-4">
+            <button
+              type="button"
+              onClick={handleButtonClick}
+              className="flex-1 px-4 py-3 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-100 font-semibold hover:border-blue-500 hover:text-blue-600 transition-all"
+            >
+              {t('chooseFile')}
+            </button>
+            <button
+              type="button"
+              onClick={handleCameraClick}
+              className="flex-1 px-4 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7h3l2-3h8l2 3h3v13H3V7z" />
+                <circle cx="12" cy="13" r="3" strokeWidth={1.5} stroke="currentColor" />
+              </svg>
+              {t('takePhoto')}
+            </button>
           </div>
         </div>
 
@@ -138,7 +186,7 @@ function ImageUpload({ onImageUpload }) {
               className="max-w-full max-h-[80%] rounded-lg shadow-lg object-contain mb-4"
             />
             <p className="text-sm font-medium text-blue-600 dark:text-blue-400 animate-pulse">
-              Traitement en cours...
+              {t('processing')}
             </p>
           </div>
         )}
@@ -148,4 +196,3 @@ function ImageUpload({ onImageUpload }) {
 }
 
 export default ImageUpload
-

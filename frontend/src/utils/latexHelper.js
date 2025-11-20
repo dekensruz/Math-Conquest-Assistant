@@ -10,12 +10,25 @@ export function fixLatexInText(text) {
   if (!text || typeof text !== 'string') return text
 
   // 1. NETTOYAGE AGRESSIF : Suppression des caractères de contrôle
-  // Le caractère \f (Form Feed, \x0C) est le coupable principal qui s'affiche comme un carré ou casse le rendu
-  // On supprime aussi tous les caractères ASCII de contrôle non imprimables
-  let clean = text.replace(/\f/g, '').replace(/\x0c/g, '').replace(/[\x00-\x08\x0B\x0E-\x1F\x7F]/g, '')
+  // Le caractère \f (Form Feed) est le coupable principal qui s'affiche en rouge
+  let clean = Array.from(text)
+    .filter((char) => {
+      const code = char.charCodeAt(0)
+      const isPrintable = code >= 32 || code === 10 || code === 13 || code === 9
+      return isPrintable
+    })
+    .join('')
 
   // 2. CORRECTIONS DE SYNTAXE
   
+  // Supprimer ou corriger les commandes \f résiduelles (provoquent un "f" rouge)
+  // - Si un \f précède déjà un backslash, on le supprime simplement
+  clean = clean.replace(/\\f\s*(?=\\)/gi, '')
+  // Convertir les \f suivis d'un espace ou d'une parenthèse/accolade en \frac
+  clean = clean.replace(/\\f\s*(?=\(|\{)/gi, '\\frac')
+  // Supprimer tout \f restant (commande inconnue)
+  clean = clean.replace(/\\f/gi, '')
+
   // "rac{a}{b}" -> "\frac{a}{b}"
   clean = clean.replace(/rac\{([^}]+)\}\{([^}]+)\}/g, '\\frac{$1}{$2}')
   
@@ -35,4 +48,59 @@ export function fixLatexInText(text) {
   })
 
   return clean.trim()
+}
+
+/**
+ * Convertit une expression LaTeX simple en texte lisible par tout le monde
+ * Exemple : "\frac{-4}{2}" -> "(-4) / (2)"
+ */
+export function latexToPlainText(text) {
+  if (!text || typeof text !== 'string') return ''
+
+  let plain = fixLatexInText(text)
+
+  // Fractions simples
+  const fracRegex = /\\frac\{([^{}]+)\}\{([^{}]+)\}/g
+  plain = plain.replace(fracRegex, '($1) / ($2)')
+
+  // Racines
+  plain = plain.replace(/\\sqrt\{([^}]+)\}/g, '√($1)')
+  plain = plain.replace(/\\sqrt\[(\d+)\]\{([^}]+)\}/g, '$1√($2)')
+
+  // Puissances simples x^{2}
+  plain = plain.replace(/\^\{([^}]+)\}/g, '^($1)')
+
+  // Symboles courants
+  const symbolMap = {
+    '\\times': '×',
+    '\\cdot': '·',
+    '\\div': '÷',
+    '\\pm': '±',
+    '\\pi': 'π',
+    '\\infty': '∞',
+    '\\leq': '≤',
+    '\\geq': '≥',
+    '\\neq': '≠',
+    '\\approx': '≈',
+    '\\to': '→'
+  }
+
+  Object.entries(symbolMap).forEach(([latexCmd, symbol]) => {
+    plain = plain.replace(new RegExp(latexCmd, 'g'), symbol)
+  })
+
+  // Nettoyage des commandes restantes
+  plain = plain
+    .replace(/\\left|\\right/g, '')
+    .replace(/\\,/g, ' ')
+    .replace(/\\!/g, '')
+    .replace(/\\\\/g, ' ')
+
+  // Retirer les accolades inutiles
+  plain = plain.replace(/[{}]/g, '')
+
+  // Supprimer les backslash restants
+  plain = plain.replace(/\\/g, '')
+
+  return plain.replace(/\s+/g, ' ').trim()
 }

@@ -1,11 +1,11 @@
-import { BlockMath, InlineMath } from 'react-katex'
+import { BlockMath } from 'react-katex'
 import 'katex/dist/katex.min.css'
 import { useEffect, useRef } from 'react'
 import jsPDF from 'jspdf'
 import ChatInterface from './ChatInterface'
 import { addToHistory } from '../utils/historyStorage'
 import StepDescription from './StepDescription'
-import { fixLatexInText } from '../utils/latexHelper'
+import { fixLatexInText, latexToPlainText } from '../utils/latexHelper'
 import { useLanguage } from '../contexts/LanguageContext'
 
 /**
@@ -54,7 +54,7 @@ function SolutionDisplay({ problem, solution, onReset }) {
           pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
           heightLeft -= pageHeight
         }
-        pdf.save('solution-math-assistant.pdf')
+        pdf.save('solution-math-conquest-assistant.pdf')
       })
     })
   }
@@ -84,25 +84,20 @@ function SolutionDisplay({ problem, solution, onReset }) {
   }
 
   // Traitement de la réponse finale avec nettoyage agressif
-  let finalAnswer = solution.final_answer || 'Résultat non disponible'
-  if (typeof finalAnswer === 'string') {
-    finalAnswer = fixLatexInText(finalAnswer)
-    finalAnswer = finalAnswer.replace(/\s+/g, ' ').trim()
+  const wolframResult = solution?.wolfram_result?.result
+  let rawFinalAnswer = explanation.final_answer || wolframResult || ''
+  if (typeof rawFinalAnswer === 'string') {
+    rawFinalAnswer = fixLatexInText(rawFinalAnswer).replace(/\s+/g, ' ').trim()
+  } else {
+    rawFinalAnswer = ''
   }
-  
-  // Déterminer si finalAnswer est du LaTeX valide ou du texte simple
-  const isLatex = typeof finalAnswer === 'string' && (
-    finalAnswer.includes('\\') || 
-    finalAnswer.includes('^') || 
-    finalAnswer.includes('_') ||
-    finalAnswer.includes('frac') ||
-    finalAnswer.includes('sqrt') ||
-    /[a-zA-Z]/.test(finalAnswer) || // Contient des lettres
-    /[=+\-*\/]/.test(finalAnswer) // Contient des opérateurs
-  )
+
+  const plainFinalAnswer = latexToPlainText(rawFinalAnswer)
+  const displayFinalAnswer = plainFinalAnswer || rawFinalAnswer || t('resultUnavailable')
+  const showLatexNotation = rawFinalAnswer && plainFinalAnswer !== rawFinalAnswer
 
   // Nettoyer le problème pour l'affichage (retirer les délimiteurs \[ \] s'ils sont présents)
-  const displayProblem = typeof problem === 'string' ? problem.replace(/^\\\[|\\\]$/g, '').trim() : problem;
+  const displayProblem = typeof problem === 'string' ? fixLatexInText(problem.replace(/^\\\[|\\\]$/g, '').trim()) : problem;
 
   return (
     <div className="space-y-6">
@@ -194,7 +189,7 @@ function SolutionDisplay({ problem, solution, onReset }) {
           </div>
         ) : (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            Aucune étape détaillée disponible.
+            {t('noSteps')}
             {explanation.raw_text && (
                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded text-left text-sm font-mono overflow-x-auto whitespace-pre-wrap">
                  {explanation.raw_text}
@@ -211,18 +206,23 @@ function SolutionDisplay({ problem, solution, onReset }) {
         {/* Réponse finale */}
         <div className="mt-8 pt-8 border-t border-gray-100 dark:border-gray-700">
           <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-4">
-            Réponse finale
+            {t('finalAnswer')}
           </h3>
           <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/10 rounded-xl p-6 border border-green-100 dark:border-green-800/30 shadow-sm">
-            <div className="text-center">
-              {isLatex ? (
-                <div className="text-green-900 dark:text-green-100">
-                  <BlockMath math={finalAnswer} />
+            <div className="text-center space-y-4">
+              <p className="text-2xl font-semibold text-green-900 dark:text-green-100">
+                {displayFinalAnswer}
+              </p>
+
+              {showLatexNotation && (
+                <div className="bg-white/70 dark:bg-white/5 border border-green-100/60 dark:border-green-800/40 rounded-lg p-4">
+                  <p className="text-xs uppercase tracking-wider text-green-700 dark:text-green-300 mb-2 font-semibold">
+                    {t('mathNotation')}
+                  </p>
+                  <div className="text-green-900 dark:text-green-100">
+                    <BlockMath math={rawFinalAnswer} />
+                  </div>
                 </div>
-              ) : (
-                <p className="text-xl sm:text-2xl font-semibold text-green-800 dark:text-green-200">
-                  {finalAnswer}
-                </p>
               )}
             </div>
           </div>
@@ -232,7 +232,7 @@ function SolutionDisplay({ problem, solution, onReset }) {
         {explanation.summary && (
           <div className="mt-8">
             <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-3">
-              Résumé
+              {t('summary')}
             </h3>
             <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-6 border border-gray-100 dark:border-gray-700">
               <div className="text-base text-gray-700 dark:text-gray-300">

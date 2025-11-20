@@ -6,6 +6,7 @@ import HistorySidebar from './components/HistorySidebar'
 import LoadingSpinner from './components/LoadingSpinner'
 import ThemeToggle from './components/ThemeToggle'
 import LandingPage from './components/LandingPage'
+import ProblemReview from './components/ProblemReview'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext'
 
@@ -15,12 +16,40 @@ import { LanguageProvider, useLanguage } from './contexts/LanguageContext'
  */
 function MainContent() {
   const [isStarted, setIsStarted] = useState(false)
-  const [currentStep, setCurrentStep] = useState('upload') // upload, extracting, latex, solving, solution, history
+  const [currentStep, setCurrentStep] = useState('upload') // upload, extracting, confirm, latex, solving, solution, history
   const [latexProblem, setLatexProblem] = useState('')
   const [solution, setSolution] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [inputMode, setInputMode] = useState('upload') // upload | manual
+  const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(false)
   const { t, language, setLanguage } = useLanguage()
+
+  /**
+   * Tente d'extraire un message d'erreur exploitable depuis une réponse HTTP
+   */
+  const extractErrorMessage = async (response, fallbackMessage) => {
+    try {
+      const rawText = await response.text()
+      if (!rawText) {
+        return fallbackMessage
+      }
+
+      try {
+        const parsed = JSON.parse(rawText)
+        return (
+          parsed?.detail ||
+          parsed?.message ||
+          parsed?.error ||
+          fallbackMessage
+        )
+      } catch {
+        return rawText
+      }
+    } catch {
+      return fallbackMessage
+    }
+  }
 
   if (!isStarted) {
     return <LandingPage onStart={() => setIsStarted(true)} />
@@ -44,13 +73,18 @@ function MainContent() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Erreur lors de l\'extraction du LaTeX')
+        const message = await extractErrorMessage(
+          response,
+          'Erreur lors de l\'extraction du LaTeX'
+        )
+        throw new Error(message)
       }
 
       const data = await response.json()
       setLatexProblem(data.latex)
-      setCurrentStep('latex')
+      setSolution(null)
+      setInputMode('upload')
+      setCurrentStep('confirm')
     } catch (err) {
       let errorMessage = err.message || 'Une erreur est survenue lors de l\'extraction du LaTeX'
       
@@ -91,8 +125,11 @@ function MainContent() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Erreur lors de la résolution')
+        const message = await extractErrorMessage(
+          response,
+          'Erreur lors de la résolution'
+        )
+        throw new Error(message)
       }
 
       const data = await response.json()
@@ -117,17 +154,9 @@ function MainContent() {
    * Sélectionne un problème depuis l'historique
    */
   const handleSelectProblem = (problem, solution) => {
-    setLatexProblem(problem)
+      setLatexProblem(problem)
     setSolution(solution)
     setCurrentStep('solution')
-  }
-
-  /**
-   * Navigue vers l'historique
-   */
-  const handleGoToHistory = () => {
-    setCurrentStep('history')
-    setError(null)
   }
 
   /**
@@ -136,6 +165,17 @@ function MainContent() {
   const handleBackToMain = () => {
     setCurrentStep('upload')
     setError(null)
+    setLatexProblem('')
+    setSolution(null)
+    setInputMode('upload')
+  }
+
+  const handleCancelEdit = () => {
+    if (inputMode === 'manual') {
+      handleBackToMain()
+    } else {
+      setCurrentStep('confirm')
+    }
   }
 
   const handleBackToLanding = () => {
@@ -147,10 +187,16 @@ function MainContent() {
   return (
     <div className="min-h-screen bg-gray-50/50 dark:bg-gray-950 transition-colors flex font-sans">
       {/* Menu latéral Historique (Nouveau Design) */}
-      <HistorySidebar onSelectProblem={handleSelectProblem} />
+      <HistorySidebar 
+        onSelectProblem={handleSelectProblem} 
+        onCollapseChange={(collapsed) => setIsHistoryCollapsed(collapsed)}
+      />
       
       {/* Contenu principal - Ajusté avec une marge gauche pour éviter le chevauchement avec le dock */}
-      <div className="flex-1 flex flex-col min-w-0 pl-[72px] transition-all duration-500">
+      <div
+        className="flex-1 flex flex-col min-w-0 w-full transition-all duration-500 lg:ml-[var(--sidebar-width)]"
+        style={{ '--sidebar-width': isHistoryCollapsed ? '5rem' : '18rem' }}
+      >
         {/* Header */}
         <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 transition-colors sticky top-0 z-30">
           <div className="max-w-5xl mx-auto px-4 py-3 sm:px-6 lg:px-8">
@@ -259,8 +305,13 @@ function MainContent() {
                       </span>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setCurrentStep('latex')}
+                <button
+                  onClick={() => {
+                    setInputMode('manual')
+                    setLatexProblem('')
+                    setSolution(null)
+                    setCurrentStep('latex')
+                  }}
                     className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30 transition-colors"
                   >
                     <svg className="mr-2 -ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -272,7 +323,7 @@ function MainContent() {
               </div>
             )}
 
-            {currentStep === 'latex' && (
+            {currentStep === 'confirm' && (
               <div className="animate-fade-in">
                 <button
                   onClick={handleBackToMain}
@@ -281,12 +332,38 @@ function MainContent() {
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                   </svg>
-                  Retour
+                  {t('back')}
+                </button>
+                <ProblemReview
+                  latex={latexProblem}
+                  onEdit={() => setCurrentStep('latex')}
+                  onSolve={() => handleSolve(latexProblem)}
+                  onReset={handleBackToMain}
+                />
+              </div>
+            )}
+
+            {currentStep === 'latex' && (
+              <div className="animate-fade-in">
+                <button
+                  onClick={() => {
+                    if (inputMode === 'manual') {
+                      handleBackToMain()
+                    } else {
+                      setCurrentStep('confirm')
+                    }
+                  }}
+                  className="mb-4 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center gap-1 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  {t('back')}
                 </button>
                 <ProblemDisplay 
                   latex={latexProblem} 
                   onSolve={handleSolve} 
-                  isLoading={loading}
+                  onReset={handleCancelEdit}
                 />
               </div>
             )}
@@ -300,7 +377,7 @@ function MainContent() {
                       {t('analyzing')}
                     </p>
                     <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-                      L'intelligence artificielle analyse les étapes...
+                      {t('analyzingSub')}
                     </p>
                   </div>
                 ) : (
@@ -316,10 +393,10 @@ function MainContent() {
         </main>
 
         {/* Footer */}
-        <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-8 mt-auto">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              &copy; {new Date().getFullYear()} Math Assistant. Créé par{' '}
+        <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-3 sm:py-4 mt-auto shrink-0">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs sm:text-sm">
+            <p className="text-gray-500 dark:text-gray-400">
+              &copy; {new Date().getFullYear()} {t('footerText')}{' '}
               <a 
                 href="https://dekens-ruzuba.vercel.app/" 
                 target="_blank" 
@@ -327,7 +404,7 @@ function MainContent() {
                 className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
               >
                 Dekens Ruzuba
-              </a>
+              </a>. {t('allRightsReserved')}
             </p>
           </div>
         </footer>
