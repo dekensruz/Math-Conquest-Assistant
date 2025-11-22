@@ -121,6 +121,35 @@ export function renderMarkdown(text) {
       continue
     }
 
+    // Code block LaTeX ($$ ... $$)
+    if (line.startsWith('$$')) {
+      flushParagraph()
+      flushList()
+      let latexContent = ''
+      if (line.endsWith('$$') && line.length > 2 && line.lastIndexOf('$$') > 1) {
+        latexContent = line.substring(2, line.lastIndexOf('$$')).trim()
+      } else {
+        latexContent = line.substring(2).trim()
+        while (i + 1 < lines.length && !lines[i + 1].includes('$$')) {
+          i++
+          latexContent += ' ' + lines[i].trim()
+        }
+        if (i + 1 < lines.length) {
+          i++
+          const endLine = lines[i]
+          latexContent += ' ' + endLine.replace(/\$\$/g, '').trim()
+        }
+      }
+      if (latexContent) {
+        elements.push(
+          <div key={elements.length} className="my-3 bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-lg p-4 overflow-x-auto">
+            <BlockMath math={latexContent} />
+          </div>
+        )
+      }
+      continue
+    }
+
     // Ligne vide
     if (line === '') {
       flushParagraph()
@@ -154,7 +183,7 @@ export function renderTextWithLatex(text) {
   // LaTeX inline: \( ... \)
   // Gras: ** ... **
   // Italique: * ... *
-  const pattern = /(\\\((?:[^)]+)\\\))|(\*\*(?:[^*]+)\*\*)|(\*(?:[^*]+)\*)/g
+  const pattern = /(\\\((?:[^)]+)\\\))|(\$\$(?:[^$]+)\$\$)|(\$(?:[^$]+)\$)|(\*\*(?:[^*]+)\*\*)|(\*(?:[^*]+)\*)|(\\[a-zA-Z]+(?:\[[^\]]+\])?(?:\{[^{}]+\})+)/g
   let match
 
   while ((match = pattern.exec(text)) !== null) {
@@ -164,15 +193,23 @@ export function renderTextWithLatex(text) {
     }
 
     // Identifier le type de match
-    if (match[1]) { // LaTeX
+    if (match[1]) { // LaTeX \( \)
       const latex = match[1].substring(2, match[1].length - 2)
       parts.push({ type: 'latex', content: latex })
-    } else if (match[2]) { // Gras
-      const boldText = match[2].substring(2, match[2].length - 2)
+    } else if (match[2]) { // LaTeX $$ $$
+      const latex = match[2].substring(2, match[2].length - 2)
+      parts.push({ type: 'latex', content: latex })
+    } else if (match[3]) { // LaTeX $ $
+      const latex = match[3].substring(1, match[3].length - 1)
+      parts.push({ type: 'latex', content: latex })
+    } else if (match[4]) { // Gras
+      const boldText = match[4].substring(2, match[4].length - 2)
       parts.push({ type: 'bold', content: boldText })
-    } else if (match[3]) { // Italique
-      const italicText = match[3].substring(1, match[3].length - 1)
+    } else if (match[5]) { // Italique
+      const italicText = match[5].substring(1, match[5].length - 1)
       parts.push({ type: 'italic', content: italicText })
+    } else if (match[6]) { // Latex commande brute (ex: \frac{...}{...})
+      parts.push({ type: 'latex', content: match[6] })
     }
 
     lastIndex = match.index + match[0].length

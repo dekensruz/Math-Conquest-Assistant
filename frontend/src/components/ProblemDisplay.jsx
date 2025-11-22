@@ -100,11 +100,11 @@ function ProblemDisplay({ latex, onSolve, onReset }) {
       { label: '{ }', latex: { start: '\\{', end: '\\}' }, natural: { start: '{', end: '}' } },
     ],
     algebra: [
+      { label: '𝒂/𝒃', latex: { start: '\\frac{', end: '}{}', cursorOffset: 0 }, natural: { start: '(', end: ')/()', cursorOffset: 0 }, description: 'Fraction : numérateur/dénominateur' },
       { label: 'x²', latex: { start: '^{2}' }, natural: { start: '^2' } },
       { label: 'xⁿ', latex: { start: '^{', end: '}' }, natural: { start: '^(', end: ')' } },
       { label: '√', latex: { start: '\\sqrt{', end: '}' }, natural: { start: '√(', end: ')' } },
       { label: '³√', latex: { start: '\\sqrt[3]{', end: '}' }, natural: { start: '∛(', end: ')' } },
-      { label: 'a/b', latex: { start: '\\frac{', end: '}{}', cursorOffset: -1 }, natural: { start: '(', end: ')/()', cursorOffset: 0 } },
       { label: '|x|', latex: { start: '|', end: '|' }, natural: { start: '|', end: '|' } },
       { label: '∞', latex: { start: '\\infty ' }, natural: { start: '∞' } },
       { label: 'π', latex: { start: '\\pi ' }, natural: { start: 'π' } },
@@ -149,42 +149,48 @@ function ProblemDisplay({ latex, onSolve, onReset }) {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-100 dark:border-gray-700 transition-colors">
-      <div className="flex flex-col gap-4 mb-4">
+    <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-xl p-6 sm:p-8 border-2 border-gray-200 dark:border-gray-700 transition-all animate-fade-in">
+      <div className="flex flex-col gap-4 mb-6">
         <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          <span className="w-2 h-6 bg-blue-600 rounded-full"></span>
-          {t('problemDetected')}
+        <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white flex items-center gap-3">
+          <span className="w-1.5 h-8 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full shadow-md"></span>
+          {t('problemDetected') || 'Éditeur de problème'}
         </h2>
-        <div className="inline-flex items-center gap-2 bg-gray-100 dark:bg-gray-900 rounded-full p-1 text-xs font-semibold">
+        <div className="inline-flex items-center gap-2 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-900 dark:to-gray-800 rounded-full p-1.5 text-xs font-bold shadow-inner">
           <button
             onClick={() => handleModeChange('natural')}
-            className={`px-3 py-1 rounded-full transition-all ${editorMode === 'natural' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow' : 'text-gray-500 dark:text-gray-400'}`}
+            className={`px-4 py-2 rounded-full transition-all ${editorMode === 'natural' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
           >
-            {t('naturalMode')}
+            ✏️ {t('naturalMode') || 'Naturel'}
           </button>
           <button
             onClick={() => handleModeChange('latex')}
-            className={`px-3 py-1 rounded-full transition-all ${editorMode === 'latex' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow' : 'text-gray-500 dark:text-gray-400'}`}
+            className={`px-4 py-2 rounded-full transition-all ${editorMode === 'latex' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
           >
-            {t('latexMode')}
+            📐 {t('latexMode') || 'LaTeX'}
           </button>
         </div>
         </div>
       </div>
 
       {/* Zone de prévisualisation (Rendu Math) */}
-      <div className="bg-slate-50 dark:bg-gray-900/80 rounded-xl p-6 mb-6 border-2 border-slate-100 dark:border-gray-700 flex items-center justify-center min-h-[120px] shadow-inner">
-        <div className="text-center text-xl sm:text-2xl overflow-x-auto max-w-full text-slate-800 dark:text-slate-100">
+      <div className="bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900/80 dark:to-blue-900/10 rounded-2xl p-8 mb-6 border-2 border-slate-200 dark:border-gray-700 flex items-center justify-center min-h-[140px] shadow-lg relative overflow-hidden">
+        <div className="absolute top-2 right-2 px-3 py-1 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full text-xs font-semibold text-gray-600 dark:text-gray-400 shadow-sm">
+          Aperçu
+        </div>
+        <div className="text-center text-xl sm:text-2xl overflow-x-auto max-w-full text-slate-900 dark:text-slate-100">
           {editableLatex ? (
              <BlockMath math={fixLatexInText(editableLatex)} />
           ) : (
-             <span className="text-gray-400 italic text-base">{t('problemPreviewPlaceholder')}</span>
+             <span className="text-gray-400 italic text-base">✨ {t('problemPreviewPlaceholder') || 'Votre formule apparaîtra ici'}</span>
           )}
         </div>
       </div>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-        {editorMode === 'natural' ? t('naturalHelper') : t('problemHint')}
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-5 flex items-center gap-2">
+        <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+        </svg>
+        {editorMode === 'natural' ? (t('naturalHelper') || 'Écrivez naturellement, ex: (3+2)/5') : (t('problemHint') || 'Utilisez LaTeX pour les formules complexes')}
       </p>
 
       {/* Interface Éditeur Calculatrice */}
@@ -214,20 +220,26 @@ function ProblemDisplay({ latex, onSolve, onReset }) {
         <div className="p-3 bg-gray-50 dark:bg-gray-900/30 grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 max-h-48 overflow-y-auto scrollbar-thin">
           {symbols[activeTab].map((sym, idx) => {
             const isDisabled = editorMode === 'natural' && !sym.natural
+            const isFraction = sym.label === '𝒂/𝒃'
             return (
               <button
                 key={idx}
                 type="button"
                 disabled={isDisabled}
                 onClick={() => !isDisabled && handleInsertSymbol(sym)}
-                className={`h-10 flex items-center justify-center rounded-lg border text-sm font-medium transition-all ${
+                className={`h-10 flex items-center justify-center rounded-lg border text-sm font-medium transition-all relative group ${
                   isDisabled
                     ? 'bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-60'
+                    : isFraction
+                    ? 'bg-gradient-to-br from-blue-500 to-indigo-500 border-blue-400 dark:border-blue-600 text-white hover:from-blue-600 hover:to-indigo-600 hover:shadow-lg active:scale-95 shadow-md font-bold'
                     : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-md active:scale-95 shadow-sm'
                 }`}
-                title={editorMode === 'natural' ? sym.natural?.start || sym.latex?.start || sym.label : sym.latex?.start || sym.label}
+                title={sym.description || (editorMode === 'natural' ? sym.natural?.start || sym.latex?.start || sym.label : sym.latex?.start || sym.label)}
               >
                 {sym.label}
+                {isFraction && (
+                  <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
+                )}
               </button>
             )
           })}
@@ -265,21 +277,21 @@ function ProblemDisplay({ latex, onSolve, onReset }) {
       </div>
 
       {/* Actions */}
-      <div className="flex flex-col sm:flex-row gap-3 mt-6">
+      <div className="flex flex-col sm:flex-row gap-4 mt-8">
         <button
           onClick={handleSolve}
-          className="flex-1 px-6 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/30 active:scale-[0.98] transition-all text-base flex items-center justify-center gap-2"
+          className="flex-1 px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 shadow-xl shadow-blue-500/30 hover:shadow-2xl hover:shadow-blue-500/40 active:scale-[0.98] transition-all text-lg flex items-center justify-center gap-3 group"
         >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg className="w-6 h-6 group-hover:rotate-12 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
-          {t('solveButton')}
+          {t('solveButton') || 'Résoudre maintenant'}
         </button>
         <button
           onClick={onReset}
-          className="px-6 py-3.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all text-sm"
+          className="px-8 py-4 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-2 border-gray-300 dark:border-gray-700 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-600 transition-all shadow-md hover:shadow-lg"
         >
-          {t('cancel')}
+          {t('cancel') || 'Annuler'}
         </button>
       </div>
     </div>

@@ -62,7 +62,7 @@ function LandingPage({ onStart }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                 </svg>
               </div>
-              <span className="text-xl font-bold tracking-tight">Math Conquest Assistant</span>
+              <span className="text-xl font-bold tracking-tight">Math Conquest</span>
             </div>
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-full p-1 shadow-inner border border-gray-200 dark:border-gray-700">
@@ -215,7 +215,7 @@ function LandingPage({ onStart }) {
           <p>
             &copy; {new Date().getFullYear()} {t('footerText')}{' '}
             <a
-              href="https://dekens-ruzuba.vercel.app/"
+              href="http://portfoliodek.netlify.app/"
               target="_blank"
               rel="noopener noreferrer"
               className="font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import ImageUpload from './components/ImageUpload'
 import ProblemDisplay from './components/ProblemDisplay'
 import SolutionDisplay from './components/SolutionDisplay'
@@ -7,8 +7,10 @@ import LoadingSpinner from './components/LoadingSpinner'
 import ThemeToggle from './components/ThemeToggle'
 import LandingPage from './components/LandingPage'
 import ProblemReview from './components/ProblemReview'
+import ChatWidget from './components/ChatWidget'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext'
+import { apiFetch } from './utils/apiClient'
 
 /**
  * Composant principal de l'application
@@ -16,13 +18,14 @@ import { LanguageProvider, useLanguage } from './contexts/LanguageContext'
  */
 function MainContent() {
   const [isStarted, setIsStarted] = useState(false)
-  const [currentStep, setCurrentStep] = useState('upload') // upload, extracting, confirm, latex, solving, solution, history
+  const [currentStep, setCurrentStep] = useState('upload') // upload, extracting, confirm, latex, solving, solution
   const [latexProblem, setLatexProblem] = useState('')
   const [solution, setSolution] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
   const [inputMode, setInputMode] = useState('upload') // upload | manual
   const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(false)
+  const chatWidgetRef = useRef(null)
   const { t, language, setLanguage } = useLanguage()
 
   /**
@@ -67,7 +70,7 @@ function MainContent() {
       const formData = new FormData()
       formData.append('file', imageFile)
 
-      const response = await fetch('/api/extract-latex', {
+      const response = await apiFetch('/api/extract-latex', {
         method: 'POST',
         body: formData,
       })
@@ -113,7 +116,7 @@ function MainContent() {
     setCurrentStep('solving')
 
     try {
-      const response = await fetch('/api/solve', {
+      const response = await apiFetch('/api/solve', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -184,37 +187,44 @@ function MainContent() {
     setError(null)
   }
 
+  const handleOpenChat = () => {
+    if (chatWidgetRef.current) {
+      chatWidgetRef.current.openChat()
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50/50 dark:bg-gray-950 transition-colors flex font-sans">
-      {/* Menu latéral Historique (Nouveau Design) */}
-      <HistorySidebar 
-        onSelectProblem={handleSelectProblem} 
-        onCollapseChange={(collapsed) => setIsHistoryCollapsed(collapsed)}
-      />
-      
-      {/* Contenu principal - Ajusté avec une marge gauche pour éviter le chevauchement avec le dock */}
-      <div
-        className="flex-1 flex flex-col min-w-0 w-full transition-all duration-500 lg:ml-[var(--sidebar-width)]"
-        style={{ '--sidebar-width': isHistoryCollapsed ? '5rem' : '18rem' }}
-      >
-        {/* Header */}
-        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 transition-colors sticky top-0 z-30">
-          <div className="max-w-5xl mx-auto px-4 py-3 sm:px-6 lg:px-8">
+    <div className="min-h-[100dvh] flex flex-col bg-gray-50/50 dark:bg-gray-950 transition-colors font-sans overflow-x-hidden">
+      <div className="flex-1 flex relative w-full">
+        {/* Menu latéral Historique (Nouveau Design) */}
+        <HistorySidebar 
+          onSelectProblem={handleSelectProblem} 
+          onCollapseChange={(collapsed) => setIsHistoryCollapsed(collapsed)}
+        />
+        
+        {/* Contenu principal - Ajusté avec une marge gauche pour éviter le chevauchement avec le dock */}
+        <div
+          className="flex-1 flex flex-col min-w-0 w-full transition-all duration-500 lg:ml-[var(--sidebar-width)]"
+          style={{ '--sidebar-width': isHistoryCollapsed ? '4rem' : '18rem' }}
+        >
+        {/* Header - Design amélioré */}
+        <header className="bg-gradient-to-r from-white via-blue-50/30 to-white dark:from-gray-800 dark:via-gray-800 dark:to-gray-800 shadow-md border-b border-blue-100 dark:border-gray-700 transition-colors">
+          <div className="max-w-5xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center">
               <button 
                 onClick={handleBackToLanding}
-                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                className="flex items-center gap-3 hover:opacity-90 transition-all group"
               >
-                <div className="w-8 h-8 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-md shadow-blue-500/20">
-                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30 group-hover:shadow-xl group-hover:shadow-blue-500/40 group-hover:scale-105 transition-all">
+                  <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <div>
-                  <h1 className="text-lg font-bold text-gray-900 dark:text-white leading-tight">
+                <div className="hidden sm:block">
+                  <h1 className="text-xl font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent leading-tight">
                     {t('appTitle')}
                   </h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">
+                  <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">
                     {t('appSubtitle')}
                   </p>
                 </div>
@@ -222,18 +232,18 @@ function MainContent() {
               
               <div className="flex items-center gap-3">
                 {/* Sélecteur de langue */}
-                <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-1 border border-gray-200 dark:border-gray-600">
+                <div className="flex items-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 rounded-xl p-1 shadow-inner border border-gray-300 dark:border-gray-600">
                   <button 
                     onClick={() => setLanguage('fr')}
-                    className={`px-2 py-1 text-xs font-medium rounded-md transition-all ${language === 'fr' ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${language === 'fr' ? 'bg-gradient-to-br from-white to-gray-50 dark:from-gray-600 dark:to-gray-700 text-blue-600 dark:text-blue-400 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
                   >
-                    FR
+                    🇫🇷 FR
                   </button>
                   <button 
                     onClick={() => setLanguage('en')}
-                    className={`px-2 py-1 text-xs font-medium rounded-md transition-all ${language === 'en' ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${language === 'en' ? 'bg-gradient-to-br from-white to-gray-50 dark:from-gray-600 dark:to-gray-700 text-blue-600 dark:text-blue-400 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
                   >
-                    EN
+                    🇬🇧 EN
                   </button>
                 </div>
                 
@@ -244,7 +254,7 @@ function MainContent() {
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 w-full max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <main className="flex-grow w-full max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col">
           {error && (
             <div className="mb-6 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-r shadow-sm animate-fade-in">
               <div className="flex">
@@ -277,11 +287,14 @@ function MainContent() {
 
           {/* Global Loading Indicator */}
           {loading && currentStep !== 'solving' && (
-            <div className="fixed inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-300">
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl flex flex-col items-center border border-gray-100 dark:border-gray-700">
+            <div className="fixed inset-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md flex items-center justify-center z-50 transition-all duration-300">
+              <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 p-10 rounded-3xl shadow-2xl flex flex-col items-center border-2 border-gray-200 dark:border-gray-700">
                 <LoadingSpinner />
-                <p className="mt-4 text-gray-600 dark:text-gray-300 font-medium animate-pulse">
-                  {t('loading')}
+                <p className="mt-6 text-lg text-gray-700 dark:text-gray-300 font-semibold">
+                  {t('loading') || 'Chargement...'}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                  Veuillez patienter
                 </p>
               </div>
             </div>
@@ -371,20 +384,26 @@ function MainContent() {
             {(currentStep === 'solving' || currentStep === 'solution') && (
               <div className="animate-fade-in">
                 {currentStep === 'solving' ? (
-                   <div className="flex flex-col items-center justify-center py-20">
+                   <div className="flex flex-col items-center justify-center py-20 px-6">
+                    <div className="mb-8 w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-xl animate-pulse">
+                      <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                    </div>
                     <LoadingSpinner />
-                    <p className="mt-6 text-lg text-gray-600 dark:text-gray-300 font-medium">
-                      {t('analyzing')}
+                    <p className="mt-8 text-2xl text-gray-900 dark:text-gray-100 font-bold text-center">
+                      {t('analyzing') || 'Analyse en cours...'}
                     </p>
-                    <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-                      {t('analyzingSub')}
+                    <p className="text-base text-gray-500 dark:text-gray-400 mt-3 text-center max-w-md">
+                      {t('analyzingSub') || 'Notre IA résout votre problème étape par étape'}
                     </p>
                   </div>
                 ) : (
                   <SolutionDisplay 
                     problem={latexProblem} 
                     solution={solution} 
-                    onReset={handleBackToMain} 
+                    onReset={handleBackToMain}
+                    onOpenChat={handleOpenChat}
                   />
                 )}
               </div>
@@ -392,23 +411,33 @@ function MainContent() {
           </div>
         </main>
 
-        {/* Footer */}
-        <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-3 sm:py-4 mt-auto shrink-0">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs sm:text-sm">
-            <p className="text-gray-500 dark:text-gray-400">
-              &copy; {new Date().getFullYear()} {t('footerText')}{' '}
+        {/* Footer - Design simple et élégant */}
+        <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-3 mt-auto shrink-0">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+              &copy; {new Date().getFullYear()} Math Conquest • Créé par{' '}
               <a 
-                href="https://dekens-ruzuba.vercel.app/" 
+                href="http://portfoliodek.netlify.app/" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                className="font-semibold text-blue-600 dark:text-blue-400 hover:underline transition-colors"
               >
                 Dekens Ruzuba
-              </a>. {t('allRightsReserved')}
+              </a>
             </p>
           </div>
         </footer>
+        </div>
       </div>
+
+      {/* Widget de chat flottant - visible uniquement sur la page de solution */}
+      {currentStep === 'solution' && solution && (
+        <ChatWidget 
+          ref={chatWidgetRef}
+          problem={latexProblem}
+          solution={solution}
+        />
+      )}
     </div>
   )
 }
