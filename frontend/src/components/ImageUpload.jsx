@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useLanguage } from '../contexts/LanguageContext'
+import ImageCropper from './ImageCropper'
 
 /**
  * Composant pour l'upload d'image (fichier ou caméra)
@@ -11,23 +12,108 @@ function ImageUpload({ onImageUpload }) {
   const cameraInputRef = useRef(null)
   const [dragActive, setDragActive] = useState(false)
   const [preview, setPreview] = useState(null)
+  const [showCropper, setShowCropper] = useState(false)
+  const [imageToCrop, setImageToCrop] = useState(null)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const processingRef = useRef(false)
+
+  // Réinitialiser le ref au montage et au démontage
+  useEffect(() => {
+    processingRef.current = false
+    return () => {
+      processingRef.current = false
+    }
+  }, [])
 
   /**
    * Gère la sélection de fichier
    */
-  const handleFileSelect = (file) => {
-    if (file && file.type.startsWith('image/')) {
-      // Créer une preview
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setPreview(reader.result)
+  const handleFileSelect = (file, inputRef = null) => {
+    // Vérifier avec le ref pour éviter les doubles déclenchements
+    if (processingRef.current) {
+      console.log('Already processing, ignoring duplicate file selection')
+      // Réinitialiser l'input quand même
+      if (inputRef && inputRef.current) {
+        inputRef.current.value = ''
       }
-      reader.readAsDataURL(file)
-      
-      onImageUpload(file)
-    } else {
-      alert(t('invalidImage'))
+      return
     }
+    
+    if (!file) {
+      return
+    }
+    
+    if (!file.type.startsWith('image/')) {
+      alert(t('invalidImage'))
+      return
+    }
+    
+    // Marquer comme en traitement immédiatement
+    processingRef.current = true
+    setIsProcessing(true)
+    
+    // Réinitialiser l'input immédiatement pour éviter les doubles déclenchements
+    if (inputRef && inputRef.current) {
+      inputRef.current.value = ''
+    }
+    
+    // Créer une preview et ouvrir le rogneur
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      try {
+        setImageToCrop(reader.result)
+        setShowCropper(true)
+      } catch (error) {
+        console.error('Error setting image to crop:', error)
+        processingRef.current = false
+        setIsProcessing(false)
+      }
+    }
+    reader.onerror = () => {
+      console.error('FileReader error')
+      processingRef.current = false
+      setIsProcessing(false)
+      alert(t('invalidImage') || 'Erreur lors de la lecture de l\'image')
+    }
+    
+    try {
+      reader.readAsDataURL(file)
+    } catch (error) {
+      console.error('Error reading file:', error)
+      processingRef.current = false
+      setIsProcessing(false)
+      alert(t('invalidImage') || 'Erreur lors de la lecture de l\'image')
+    }
+  }
+
+  /**
+   * Gère la confirmation du rognage
+   */
+  const handleCropConfirm = (croppedFile) => {
+    setShowCropper(false)
+    setImageToCrop(null)
+    setPreview(null)
+    processingRef.current = false
+    setIsProcessing(false)
+    // Réinitialiser les inputs pour éviter que la caméra se rouvre
+    if (fileInputRef.current) fileInputRef.current.value = ''
+    if (cameraInputRef.current) cameraInputRef.current.value = ''
+    // Uploader l'image rognée
+    onImageUpload(croppedFile)
+  }
+
+  /**
+   * Annule le rognage
+   */
+  const handleCropCancel = () => {
+    setShowCropper(false)
+    setImageToCrop(null)
+    setPreview(null)
+    processingRef.current = false
+    setIsProcessing(false)
+    // Réinitialiser les inputs
+    if (fileInputRef.current) fileInputRef.current.value = ''
+    if (cameraInputRef.current) cameraInputRef.current.value = ''
   }
 
   /**
@@ -37,14 +123,26 @@ function ImageUpload({ onImageUpload }) {
     if (e) {
       e.stopPropagation() // Empêcher la propagation au parent
     }
-    fileInputRef.current?.click()
+    console.log('handleButtonClick called', { fileInputRef: fileInputRef.current })
+    // Toujours permettre le clic, laisser le onChange gérer la protection
+    if (fileInputRef.current) {
+      fileInputRef.current.click()
+    } else {
+      console.error('fileInputRef.current is null')
+    }
   }
 
   const handleCameraClick = (e) => {
     if (e) {
       e.stopPropagation() // Empêcher la propagation au parent
     }
-    cameraInputRef.current?.click()
+    console.log('handleCameraClick called', { cameraInputRef: cameraInputRef.current })
+    // Toujours permettre le clic, laisser le onChange gérer la protection
+    if (cameraInputRef.current) {
+      cameraInputRef.current.click()
+    } else {
+      console.error('cameraInputRef.current is null')
+    }
   }
 
   /**
@@ -69,7 +167,7 @@ function ImageUpload({ onImageUpload }) {
     setDragActive(false)
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileSelect(e.dataTransfer.files[0])
+      handleFileSelect(e.dataTransfer.files[0], null)
     }
   }
 
@@ -97,8 +195,11 @@ function ImageUpload({ onImageUpload }) {
           accept="image/*"
           className="hidden"
           onChange={(e) => {
-            if (e.target.files && e.target.files[0]) {
-              handleFileSelect(e.target.files[0])
+            const file = e.target.files?.[0]
+            // Réinitialiser immédiatement pour permettre une nouvelle sélection
+            e.target.value = ''
+            if (file) {
+              handleFileSelect(file, fileInputRef)
             }
           }}
         />
@@ -109,8 +210,11 @@ function ImageUpload({ onImageUpload }) {
           capture="environment"
           className="hidden"
           onChange={(e) => {
-            if (e.target.files && e.target.files[0]) {
-              handleFileSelect(e.target.files[0])
+            const file = e.target.files?.[0]
+            // Réinitialiser immédiatement pour permettre une nouvelle sélection
+            e.target.value = ''
+            if (file) {
+              handleFileSelect(file, cameraInputRef)
             }
           }}
         />
@@ -154,7 +258,55 @@ function ImageUpload({ onImageUpload }) {
             <span className="px-3 py-1.5 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 shadow-sm">WEBP</span>
           </div>
 
-          <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+          {/* Astuce mode paysage */}
+          <div className="mt-4 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-800/30 max-w-md mx-auto">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 mt-0.5">
+                <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                  {t('landscapeTip') || '💡 Astuce : Mode paysage recommandé'}
+                </p>
+                <p className="text-xs text-blue-700 dark:text-blue-300 mb-3">
+                  {t('landscapeTipDescription') || 'Les images sont mieux transcrites lorsqu\'elles sont prises en mode paysage (horizontal).'}
+                </p>
+                {/* Illustration téléphone en mode paysage */}
+                <div className="flex flex-col items-center gap-2 bg-white dark:bg-gray-800 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
+                  <div className="relative flex items-center justify-center">
+                    {/* Téléphone en mode paysage */}
+                    <svg width="100" height="60" viewBox="0 0 100 60" className="drop-shadow-md">
+                      {/* Corps du téléphone (paysage) */}
+                      <rect x="10" y="15" width="80" height="30" rx="5" fill="#4B5563" stroke="#374151" strokeWidth="2"/>
+                      {/* Écran */}
+                      <rect x="13" y="18" width="74" height="24" rx="2" fill="#1F2937"/>
+                      {/* Formule mathématique sur l'écran */}
+                      <text x="50" y="33" fontSize="10" fill="#60A5FA" textAnchor="middle" fontFamily="serif" fontWeight="bold">x² + y² = r²</text>
+                      {/* Bouton caméra */}
+                      <circle cx="50" cy="50" r="4" fill="#3B82F6" stroke="#2563EB" strokeWidth="1.5"/>
+                    </svg>
+                    {/* Flèche horizontale indiquant le mode paysage */}
+                    <div className="absolute -top-1 left-1/2 transform -translate-x-1/2">
+                      <svg width="70" height="15" viewBox="0 0 70 15" className="text-blue-500">
+                        <path d="M5 7.5 L65 7.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                        <path d="M60 3 L65 7.5 L60 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 font-semibold">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                    {t('landscape') || 'Mode paysage'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-sm text-gray-500 dark:text-gray-400 italic mt-4">
             {t('qualityTip')}
           </p>
 
@@ -197,6 +349,15 @@ function ImageUpload({ onImageUpload }) {
           </div>
         )}
       </div>
+
+      {/* Modal de rognage */}
+      {showCropper && imageToCrop && (
+        <ImageCropper
+          imageSrc={imageToCrop}
+          onCrop={handleCropConfirm}
+          onCancel={handleCropCancel}
+        />
+      )}
     </div>
   )
 }

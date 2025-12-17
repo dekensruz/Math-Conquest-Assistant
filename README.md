@@ -155,10 +155,13 @@ Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou so
 
 Ce projet est sous licence MIT.
 
-## 👤 Auteur
+## 👤 Équipe & Contributeurs
 
-**Dekens Ruzuba**
-- Portfolio : [portfoliodek.netlify.app](http://portfoliodek.netlify.app)
+Ce projet est réalisé par une équipe dédiée. Voir [ASSIGNMENTS.md](./ASSIGNMENTS.md) pour les rôles détaillés.
+- Dekens (Frontend Lead)
+- Israël (DB)
+- Thibaut (Auth)
+- Verbeck & Sarah (Onboarding)
 
 ## 🙏 Remerciements
 
